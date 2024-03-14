@@ -1,71 +1,58 @@
-﻿<#
-Dot source this file to use it's functions in a script.  Here is an example of my jumpstart / bootstrap section of my scripts:
+<#
+.SYNOPSIS
+This script provides a collection of common functions used across various scripts for system administration tasks.
 
-## Bootstrap execution
+.DESCRIPTION
+CommonFunctions.ps1 contains reusable PowerShell functions including UI elements for data presentation, runtime measurement, asset verification, admin privilege checks, and module loading. These utilities facilitate script bootstrapping, ensuring prerequisites are met before script execution.
 
-#region Initial 'bootstrapping' of my scripts - loads a Common Functions module that most of my scripts use
-$commonFunctions = "..\Script Assets\CommonFunctions.ps1"
-try {
-    if (Test-Path $commonFunctions) {
-        # Dot source the file for use of functions
-        . $commonFunctions
-        Write-Debug "'Common Functions' loaded successfully."
-    } else {
-        throw "Failed to load 'Common Functions' from $commonFunctions."
-    }
-} catch { 
-    # Show error message and write error
-    [System.Windows.Forms.MessageBox]::Show($Error[0], "File Not Found", "OK", "Error")
-    Write-Error "$Error[0]" -ErrorId M0 -Category ResourceUnavailable
-    return $false
-}
+.PARAMETER bootstrap
+Indicates whether the script should perform the bootstrap process, including loading necessary modules and verifying system requirements.
 
-#region This section requires no user interaction
-# Variables
-$assetsFolder = '..\Script Assets\'
-$moduleList = @{
-    "Get-ComputerNames" = @{
-        Name = "Get-ComputerNames"
-        Path = $assetsFolder
-    }
-    "Active Directory" = @{
-        Name = "ActiveDirectory"
-        ErrorMessage = "This script requires the Active Directory module.`nYou need to install RSAT tools to proceed.`nRSAT Tools can be found at:`n\\lmh-sms\applications$\Microsoft\RSAT Tools"
-    }
-    "Progress Bar" = @{
-        Name = "ProgressBar"
-        Path = $assetsFolder
-    }
-    "Easy Async Jobs" = @{
-        Name = "EasyAsyncJobs"
-        Path = $assetsFolder
-    }
-}
+.EXAMPLE
+# To use CommonFunctions.ps1 for bootstrapping:
+$commonFunctions = "Path\To\CommonFunctions.ps1"
+. $commonFunctions -bootstrap $true
+This example demonstrates how to dot source CommonFunctions.ps1 with bootstrapping enabled.
 
-# Start tracking runtime
-$startTime = Measure-ScriptRuntime
-Write-Debug "Time Logged"
+.INPUTS
+None. You cannot pipe objects to CommonFunctions.ps1.
 
-# Verify the asset folder is available and checks that the Building and Department Codes.csv file is present - you can specify a different folder with the -assetsFolder flag
-$assetLoaded = Verify-AssetsFolder -assetsFolder $assetsFolder
-if (!$assetLoaded) { return }
-Write-Debug "Asset folder verified"
+.OUTPUTS
+Output varies by function within the script. Generally, it includes console messages, form displays, and boolean values indicating the success or failure of specific checks.
 
-# Ensure the user has admin privileges
-$adminVerified = Ensure-AdminPrivileges $myinvocation.MyCommand.Definition
-if (!$adminVerified) { return }
-Write-Debug "Administrator Privileges Verified"
+.NOTES
+Version:        1.0.0
+Author:         Chris Thompson - christopher.thompson@leehealth.org
+Creation Date:  03/07/24
+Dependencies:   System.Windows.Forms assembly for UI elements.
+Exceptions:     Various exceptions are handled within the script, particularly for file access, module loading, and privilege verification.
+Issues:         No known issues at this time.
 
-# Load modules listed in the ModuleList variable and track the ErrorIdCounter (no reason to track it or have it at this point)
-try { $moduleIdCount = Load-ModuleGeneric -ModuleList $moduleList } catch { return $Error[0] }
-if (!$moduleIdCount) { return }
-Write-Debug "Modules Loaded"
-#endregion
+Instructions:   
+- Dot source this script at the beginning of your PowerShell scripts to make its functions available.
+- Adjust the $bootstrap parameter as necessary based on your script's requirements.
 
-Write-Debug "Bootstrap complete"
-#endregion Bootstrap execution
+Updating:       
+- Add new functions or modify existing ones as per evolving administrative tasks or script requirements.
+- Ensure compatibility with existing scripts when updating.
+
+Changelog:      
+- 03/07/24: Initial creation. Introduced basic utilities for administrative scripting.
+
+ToDo:
+- Enhance user feedback and error handling for non-interactive environments.
+- Enable optional bootstrap parameters, like admin = $true or $false to check for admin
+
+Additional Notes:
+This script is designed to be flexible and reusable across multiple administrative scripts. Modify and extend it as needed to fit your specific use cases.
 
 #>
+
+[CmdletBinding()]
+param (
+    $bootstrap = $true,
+    $assetsFolder = '..\Script Assets'
+)
 
 Add-Type -AssemblyName System.Windows.Forms  # Load Windows Forms
 
@@ -74,15 +61,11 @@ Add-Type -AssemblyName System.Windows.Forms  # Load Windows Forms
 class ListViewCustomSorter : System.Collections.IComparer {
     <#
     .SYNOPSIS
-    Custom sorter for ListView control that implements the IComparer interface.
+    Implements a custom sorter for ListView control items based on column text.
     
     .DESCRIPTION
-    This class provides custom sorting functionality for a ListView control in a Windows Forms application.
-    It supports sorting items based on the text of a specified column in ascending or descending order.
+    The ListViewCustomSorter class provides a sorting mechanism for items in a ListView control. It allows sorting based on the text of a specified column in either ascending or descending order. This class implements the IComparer interface necessary for custom sorting within ListView controls.
     
-    .NOTES
-    Author: Your Name
-    Version: 1.0
     #>
 
     [int] $ColumnToSort = 0
@@ -123,21 +106,14 @@ function Show-DataInForm {
     .PARAMETER ColumnHeaders
     An optional array of strings specifying which columns to display and in what order. If not provided, the columns are determined based on the keys in the first hashtable.
     
-    .VERSION
-    1.0.0 - Initial release.
-
-    .AUTHOR
-    Christopher Thompson - christopher.thompson@leehealth.org
-
-    .DEPENDENCIES
-    None
-    
     .EXAMPLE
     $Data = @(
         @{ ComputerName = "PC1"; Status = "Online"; IP = "192.168.1.1" },
         @{ ComputerName = "PC2"; Status = "Offline"; IP = "192.168.1.2" }
     )
     Show-DataInForm -Data $Data
+
+    This example shows how to display a list of computers with their status and IP addresses in a sortable form.
 
     .EXAMPLE
     $data = @(
@@ -148,17 +124,17 @@ function Show-DataInForm {
         @{ Computer = "PC 5"; Status = "Offline"; Latency = "29ms"; Devices = "4"; Monitors = "3 Monitor(s)"; IP = "192.168.1.114" }
     )
     
-    $Headers = @(Computer, Status, Latency, Devices, Monitors, IP Address)
+    $Headers = @(Computer, Status, IP Address)
     
     Show-DataInForm -Data $data -ColumnHeaders $headers
 
-    .NOTES
+    This example shows how to display a list of computers with their status and IP addresses in a sortable form.  This does not show the additional fields that are provided because of the headers included.
 
     #>
     
     param (
         [Parameter(Mandatory = $true)]
-        [Hashtable[]]$Data,  # Array of hashtables, each representing a row of data.
+        $Data,  # Array of hashtables or PSCustomObjects, each representing a row of data.
 
         [Parameter(Mandatory = $false)]
         [string[]]$ColumnHeaders  # Optional. Specifies which columns to display and their order.
@@ -182,23 +158,46 @@ function Show-DataInForm {
 
     # Determine and add column headers to the ListView
     $columnsToAdd = if ($ColumnHeaders -and $ColumnHeaders.Count -gt 0) {
-        $ColumnHeaders
+        $computerKey = if ($ColumnHeaders -contains "ComputerName") { "ComputerName" } elseif ($ColumnHeaders -contains "Computer") { "Computer" } else { "ComputerName" }
+        @($computerKey) + $ColumnHeaders.Where({ $_ -ne $computerKey })
     } else {
-        $keys = $Data[0].Keys
-        $computerKey = if ($keys -contains "ComputerName") { "ComputerName" } elseif ($keys -contains "Computer") { "Computer" }
-        @($computerKey) + $keys.Where({ $_ -ne $computerKey })
+        # Check if the first item is a hashtable or a custom object and retrieve column names accordingly.
+        if ($Data[0] -is [Hashtable]) {
+            $keys = $Data[0].Keys
+            $computerKey = if ($keys -contains "ComputerName") { "ComputerName" } elseif ($keys -contains "Computer") { "Computer" }
+            @($computerKey) + $keys.Where({ $_ -ne $computerKey })
+
+        # Check if the first item is a PSCustomObject
+        } elseif ($Data[0].GetType().Name -eq 'PSCustomObject') {
+            $keys = $Data[0].PSObject.Properties.Name
+            $computerKey = if ($keys -contains "ComputerName") { "ComputerName" } elseif ($keys -contains "Computer") { "Computer" }
+            @($computerKey) + $keys.Where({ $_ -ne $computerKey })
+        } else {
+            throw "Unsupported data type for Data parameter."
+        }
     }
 
     foreach ($header in $columnsToAdd) {
         $listView.Columns.Add($header) | Out-Null
     }
 
-    # Populate the ListView with data from the hashtables
+    # Populate the ListView with data
     foreach ($item in $Data) {
-        $listViewItem = New-Object System.Windows.Forms.ListViewItem($item[$columnsToAdd[0]].ToString())
-        foreach ($header in $columnsToAdd[1..$columnsToAdd.Count]) {
-            $subItemText = $item[$header] -as [string]
+        $values = $columnsToAdd | ForEach-Object {
+            if ($item -is [Hashtable]) {
+                $item[$_]
+            } elseif ($item.GetType().Name -eq 'PSCustomObject') {
+                $item.PSObject.Properties[$_].Value
+            } else {
+                throw "Unsupported data type in Data array."
+            }
+        }
+
+        $listViewItem = New-Object System.Windows.Forms.ListViewItem($values[0].ToString())
+        $values[1..($values.Count - 1)] | ForEach-Object {
+            $subItemText = if ($_ -eq $null) { "" } else { $_.ToString() }
             $listViewItem.SubItems.Add($subItemText) | Out-Null
+
         }
         $listView.Items.Add($listViewItem) | Out-Null
     }
@@ -233,47 +232,48 @@ function Show-DataInForm {
 function Measure-ScriptRuntime {
     <#
     .SYNOPSIS
-    Measures the runtime of a script.
+    Measures and displays the runtime of a PowerShell script.
     
     .DESCRIPTION
-    This function calculates the elapsed time since the script started running. It can also mark the start time of a script.
+    The `Measure-ScriptRuntime` function calculates and displays the elapsed time for a script's execution. It can mark the script's start time and calculate the elapsed time upon completion. If a start time is provided, it calculates and displays the elapsed time since that point. If no start time is provided, the current time is returned, useful for marking the execution start.
     
     .PARAMETER startTime
-    The start time of the script. If not provided, the current time is returned as the start time.
+    (Optional) Specifies the start time from which the script's runtime is calculated. If omitted, the function returns the current time, which can be used as a start marker for execution.
     
     .EXAMPLE
-    # To mark the start time:
+    # Mark the start of the script:
     $startTime = Measure-ScriptRuntime
     
-    # At the end of the script to display runtime:
+    # Script operations here
+    
+    # Calculate and display script runtime at the end:
     Measure-ScriptRuntime -startTime $startTime
     
-    .CHANGELOG
-    1.0 Initial release.
+    Demonstrates marking the start of a script's execution and measuring its total runtime at the end.
     
-    .DEPENDENCIES
-    None.
+    .EXAMPLE
+    # Mark the start of the first operation:
+    $firstOperationStart = Measure-ScriptRuntime
     
-    .VERSION
-    1.0
+    # First operation code here
     
-    .AUTHOR
-    Chris Thompson - christopher.thompson@leehealth.org
+    # Calculate and display the first operation's runtime:
+    Measure-ScriptRuntime -startTime $firstOperationStart
     
-    .INSTRUCTIONS
-    Call this function at the start and end of your script to measure its runtime.
+    # Mark the start of the second operation:
+    $secondOperationStart = Measure-ScriptRuntime
     
-    .EXCEPTIONS
-    None.
+    # Second operation code here
     
-    .ISSUES
-    None.
+    # Calculate and display the second operation's runtime:
+    Measure-ScriptRuntime -startTime $secondOperationStart
     
-    .TODO
-    None.
+    This example shows how to time separate sections of a script independently, offering detailed insights into the execution time of each part.
     
     .NOTES
-    This function is useful for performance monitoring and optimization.
+    
+    This function is invaluable for performance monitoring and script optimization, providing a straightforward approach to timing script execution without complex mechanisms or external tools.
+    
     #>
 
     param (
@@ -282,19 +282,18 @@ function Measure-ScriptRuntime {
 
     if ($startTime) {
         # Calculate and display the elapsed time
-        $endTime = Get-Date
-        $elapsedTime = $endTime - $startTime
-
-        $elapsedTimeSpan = [TimeSpan]::FromMilliseconds($elapsedTime.TotalMilliseconds)
-        $formattedElapsedTime = $elapsedTimeSpan.ToString("hh\:mm\:ss")
-
-        Write-Host "Script finished at: $endTime"
-        Write-Host "Total script runtime: $formattedElapsedTime"
+        $endTime = Get-Date                                                              # Capture the current time as the end time
+        $elapsedTime = $endTime - $startTime                                             # Calculate elapsed time since start
+    
+        $elapsedTimeSpan = [TimeSpan]::FromMilliseconds($elapsedTime.TotalMilliseconds)  # Convert elapsed time to a TimeSpan object for easy formatting
+        $formattedElapsedTime = $elapsedTimeSpan.ToString("hh\:mm\:ss")                  # Format as hh:mm:ss
+    
+        Write-Host "Script finished at: $endTime"                                        # Display end time
+        Write-Host "Total script runtime: $formattedElapsedTime"                         # Display formatted elapsed time
     } else {
-        # If no start time is provided, return the current time
-        $startTime = Get-Date
-        Write-Host "Script started at: $startTime"
-        return $startTime
+        $startTime = Get-Date                                                            # No start time provided, use current time as start
+        Write-Host "Script started at: $startTime"                                       # Inform the user script start time
+        return $startTime                                                                # Return the start time for potential future use
     }
 }
 
@@ -302,52 +301,33 @@ function Measure-ScriptRuntime {
 function Verify-AssetsFolder {
     <#
     .SYNOPSIS
-    Verifies the presence of an Assets folder and a specific CSV file within it.
+    Verifies the presence of an Assets folder and a specific CSV file.
     
     .DESCRIPTION
-    Checks if the specified Assets folder exists and contains the "Building and Department Codes.csv" file. Prompts the user to select the folder if not found.
+    The function checks for the existence of a specified Assets folder and a CSV file named "Building and Department Codes.csv" within it. If the folder is not found, the user is prompted to select a folder through a graphical interface. The function ensures that critical assets are available before proceeding with the script execution.
     
     .PARAMETER assetsFolder
-    The path to the Assets folder. Default is "..\Script Assets\".
+    Specifies the path to the Assets folder. If not provided, a default path is used. The function checks this folder for the presence of the required CSV file.
     
     .EXAMPLE
-    # Verify the default Assets folder:
+    # To verify the default Assets folder:
     Verify-AssetsFolder
     
-    # Specify a custom Assets folder path:
+    .EXAMPLE
+    # To specify a custom Assets folder path:
     Verify-AssetsFolder -assetsFolder "C:\Custom\Path\To\Assets"
     
-    .CHANGELOG
-    1.0 Initial release.
-    
-    .DEPENDENCIES
-    Requires Windows Forms for folder selection dialog.
-    
-    .VERSION
-    1.0
-    
-    .AUTHOR
-    Chris Thompson - christopher.thompson@leehealth.org
-    
-    .INSTRUCTIONS
-    Call this function to ensure the required Assets folder and CSV file are present before proceeding with script operations that depend on these resources.
-    
-    .EXCEPTIONS
-    Exits script if Assets folder or CSV file not found.
-    
-    .ISSUES
-    None.
-    
-    .TODO
-    Improve error handling for non-interactive environments.
+    .OUTPUTS
+    Boolean
+    Returns $true if the Assets folder and the CSV file are found. Returns $false and terminates script execution otherwise.
     
     .NOTES
-    Adjust the default assetsFolder path as needed for your environment.
+    Dependencies: System.Windows.Forms assembly for displaying the folder browser dialog.
     
     #>
 
     param(
-        [string]$assetsFolder = "..\Script Assets\"  # Default path
+        [string]$assetsFolder = "\\lmh-sms\utilities$\Script Assets"  # Define the default Assets folder path
     )
     
     if (!(Test-Path $assetsFolder)) {
@@ -360,6 +340,7 @@ function Verify-AssetsFolder {
         }
     }
     
+    # Ensure the Building and Department Codes CSV file exists within the Assets folder
     $testFilePath = Join-Path $assetsFolder "Building and Department Codes.csv"
     if (!(Test-Path $testFilePath)) {
         Write-Error "Building and Department Codes.csv file not found in the Assets folder."
@@ -432,89 +413,6 @@ function Ensure-AdminPrivileges {
         }
     }
     return $true
-}
-
-# Function for selecting a file
-function Get-FileName {
-    <#
-    .SYNOPSIS
-    Prompts the user to select a file through a file dialog window.
-    
-    .DESCRIPTION
-    Opens a file dialog window asking the user to select a file. Validates the selected file exists and returns its full path. If the user cancels the operation or an invalid file is selected, the function returns $false.
-    
-    .PARAMETER title
-    Optional. Specifies the title of the file dialog window. Default is "Select a CSV file".
-    
-    .PARAMETER filter
-    Optional. Defines the filter for displayed file types in the dialog. Default is set to show CSV files and all files.
-    
-    .OUTPUTS
-    String or Boolean. Returns the full path to the selected file as a string if successful; otherwise, returns $false.
-    
-    .EXAMPLE
-    $csvFilePath = Get-FileName -title "Select a PowerShell file" -filter "PS1 files (*.ps1)|*.ps1|Command Script Files (*.cmd)|*.CMD|All files (*.*)|*.*"
-    This example shows how to use Get-FileName to prompt the user for a PS1 file or a CMD file, using a custom title and file filter.
-    
-    .EXAMPLE
-    $filePath = Get-FileName
-    This example uses the default title and filter to prompt the user to select any file, primarily focusing on CSV files.
-    
-    .CHANGELOG
-    1.0 Initial release.
-    
-    .DEPENDENCIES
-    Requires Windows Forms.
-    
-    .VERSION
-    1.0
-    
-    .AUTHOR
-    Chris Thompson - christopher.thompson@leehealth.org
-    
-    .INSTRUCTIONS
-    Call Get-FileName optionally specifying a custom window title and file filter. The function returns the full path to the selected file or $false if the operation is cancelled or an error occurs.
-    
-    .EXCEPTIONS
-    Returns $false if the file dialog is cancelled, an error occurs, or the selected file does not exist.
-    
-    .ISSUES
-    None known at this time.
-    
-    .TODO
-    - Improve error handling for unexpected exceptions.
-    - Consider adding support for multi-file selection.
-    
-    .NOTES
-    This function is designed for scripts that require user input to select a file, offering a graphical interface that's intuitive for end-users.
-    
-    #>
-
-    [CmdletBinding()]
-    param ($title = "Select a CSV file", $filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*")
-
-    # Ask the user to select a file
-    $fileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $fileDialog.Filter = $filter
-    $fileDialog.Title = $title
-
-    try {
-        # Launch form to promp user for file
-        $fileDialogResult = $fileDialog.ShowDialog()
-        $file = if ($fileDialogResult -eq [System.Windows.Forms.DialogResult]::OK) { $fileDialog.FileName } else { $false }
-
-        Write-Debug "File chosen: $file"
-    } catch {
-        Write-Debug "Error in 'Get-Filename':`n$($Error[0])"
-        $fileDialog.Dispose()
-        return $false
-    }
-    if (Test-Path $file) {
-        return $file
-    } else {
-        Write-Error "File not found"
-        return $false
-    }
 }
 
 # Function to load module and display errors if they are not found
@@ -618,13 +516,293 @@ function Load-ModuleGeneric {
         # Imports the module for use
         if ($modulePath) {
             Write-Debug "Module Path: $moduleLoad"
-            Import-Module $moduleLoad -force #-WarningAction SilentlyContinue
+            Import-Module $moduleLoad -WarningAction SilentlyContinue
         } else {
             Write-Debug "Module Name: $moduleName"
-            Import-Module $moduleName -force #-WarningAction SilentlyContinue
+            Import-Module $moduleName -WarningAction SilentlyContinue
         }
         Write-Debug "Loaded module: $moduleKey"
     }
     # Return the last ErrorIdCounter for future use (if called again or by other scripts launched by this one)
     if ($breakLoop) { return $false } else { return $ErrorIdCounter }
+}
+
+# Function for selecting a file
+function Get-FileName {
+    <#
+    .SYNOPSIS
+    Prompts the user to select a file through a file dialog window.
+    
+    .DESCRIPTION
+    Opens a file dialog window asking the user to select a file. Validates the selected file exists and returns its full path. If the user cancels the operation or an invalid file is selected, the function returns $false.
+    
+    .PARAMETER title
+    Optional. Specifies the title of the file dialog window. Default is "Select a CSV file".
+    
+    .PARAMETER filter
+    Optional. Defines the filter for displayed file types in the dialog. Default is set to show CSV files and all files.
+    
+    .OUTPUTS
+    String or Boolean. Returns the full path to the selected file as a string if successful; otherwise, returns $false.
+    
+    .EXAMPLE
+    $csvFilePath = Get-FileName -title "Select a PowerShell file" -filter "PS1 files (*.ps1)|*.ps1|Command Script Files (*.cmd)|*.CMD|All files (*.*)|*.*"
+    This example shows how to use Get-FileName to prompt the user for a PS1 file or a CMD file, using a custom title and file filter.
+    
+    .EXAMPLE
+    $filePath = Get-FileName
+    This example uses the default title and filter to prompt the user to select any file, primarily focusing on CSV files.
+    
+    .CHANGELOG
+    1.0 Initial release.
+    
+    .DEPENDENCIES
+    Requires Windows Forms.
+    
+    .VERSION
+    1.0
+    
+    .AUTHOR
+    Chris Thompson - christopher.thompson@leehealth.org
+    
+    .INSTRUCTIONS
+    Call Get-FileName optionally specifying a custom window title and file filter. The function returns the full path to the selected file or $false if the operation is cancelled or an error occurs.
+    
+    .EXCEPTIONS
+    Returns $false if the file dialog is cancelled, an error occurs, or the selected file does not exist.
+    
+    .ISSUES
+    None known at this time.
+    
+    .TODO
+    - Improve error handling for unexpected exceptions.
+    - Consider adding support for multi-file selection.
+    
+    .NOTES
+    This function is designed for scripts that require user input to select a file, offering a graphical interface that's intuitive for end-users.
+    
+    #>
+
+    [CmdletBinding()]
+    param ($title = "Select a CSV file", $filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*")
+
+    # Ask the user to select a file
+    $fileDialog = New-Object System.Windows.Forms.OpenFileDialog
+    $fileDialog.Filter = $filter
+    $fileDialog.Title = $title
+
+    try {
+        # Launch form to promp user for file
+        $fileDialogResult = $fileDialog.ShowDialog()
+        $file = if ($fileDialogResult -eq [System.Windows.Forms.DialogResult]::OK) { $fileDialog.FileName } else { $false }
+
+        Write-Debug "File chosen: $file"
+    } catch {
+        Write-Debug "Error in 'Get-Filename':`n$($Error[0])"
+        $fileDialog.Dispose()
+        return $false
+    }
+    if (Test-Path $file) {
+        return $file
+    } else {
+        Write-Error "File not found"
+        return $false
+    }
+}
+
+# Function for Save File Dialog - default .csv
+function Show-SaveFileDialog {
+<# How to use the function
+.SYNOPSIS
+    Presents a Save File dialog to the user and returns the selected file path.
+
+.DESCRIPTION
+    This function shows a graphical user interface dialog for saving a file. 
+    It allows the user to specify the location and name of the file to save. 
+    The function parameters enable customization of the dialog, 
+    including setting the file type filter, dialog title, and handling user cancellation.
+
+    If the user selects a file and confirms, the function returns the file path.
+    If the user cancels the dialog, a message box is shown, an error is logged, 
+    and the script exits.
+
+.PARAMETER filter
+    Specifies the file type filter for the dialog. Default is "CSV Files (*.csv)|*.csv".
+
+.PARAMETER title
+    Sets the title of the save file dialog. Default is "Save data results to CSV".
+
+.PARAMETER message
+    The message displayed in a message box if no file is selected. 
+    Also used for the error message. Default is "No file selected. Data cannot be saved.`nExiting script".
+
+.PARAMETER errorId
+    The identifier for the error message if the user cancels the dialog. 
+    Default is "FileSaveCancelled".
+
+.EXAMPLE
+    $filePath = ShowSaveFileDialog -filter "Text Files (*.txt)|*.txt" -title "Save Text File"
+
+    This example shows the save file dialog with a filter for text files and a custom title.
+#>
+    param (
+        [string]$filter  = "CSV Files (*.csv)|*.csv",
+        [string]$title   = "Save data results to CSV",
+        [string]$message = "No file selected. Data cannot be saved.`nExiting script",
+        [string]$errorId = "FileSaveCancelled"
+    )
+
+    # Create and configure the SaveFileDialog
+    $saveFileDialog        = New-Object System.Windows.Forms.SaveFileDialog
+    $saveFileDialog.Filter = $filter
+    $saveFileDialog.Title  = $title
+
+    # Show the dialog and process the user's response
+    if ($saveFileDialog.ShowDialog() -eq "OK") {
+        $outputFilePath = $saveFileDialog.FileName
+    } else {
+        [System.Windows.Forms.MessageBox]::Show($message, "No File Selected", "OK", "Error")
+        Write-Error $message -ErrorId $errorId -Category ObjectNotFound
+        return $false
+    }
+
+    # Clean up resources
+    $saveFileDialog.Dispose()
+
+    # Return the selected file path
+    return $outputFilePath
+}
+
+# Function to export user data to CSV
+function Export-UserDataToCSV {
+    param (
+        [Parameter(Mandatory = $true)]
+        $OrderedUserDataArray,
+
+        [Parameter(Mandatory = $true)]
+        [string]$outputFilePath
+    )
+
+    try {
+        # Export the collected data to the selected file with headers
+        $OrderedUserDataArray | Export-Csv -Path $outputFilePath -NoTypeInformation
+
+        # Inform the user that the data has been successfully saved
+        [System.Windows.Forms.MessageBox]::Show("Data successfully saved to $outputFilePath", "Export Successful", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        Write-Host "Data saved to $outputFilePath"
+    } catch {
+        # Inform the user that there was an error saving the data
+        [System.Windows.Forms.MessageBox]::Show("An error occurred while saving the data to $outputFilePath. Please check the file path and try again.", "Export Failed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        Write-Host "Failed to save data to $outputFilePath"
+    }
+}
+
+# Function to prompt how to return the data to the user
+function Get-DataFormat {
+    # Create the form
+    $form                       = New-Object System.Windows.Forms.Form
+    $form.Text                  = 'Select Action'
+    $form.Size                  = New-Object System.Drawing.Size(300, 200)
+
+    # Option 1: Save to File
+    $radioSaveToFile            = New-Object System.Windows.Forms.RadioButton
+    $radioSaveToFile.Location   = New-Object System.Drawing.Point(10, 10)
+    $radioSaveToFile.Size       = New-Object System.Drawing.Size(200, 20)
+    $radioSaveToFile.Text       = 'Save to File'
+
+    # Option 2: Display Popup
+    $radioDisplayPopup          = New-Object System.Windows.Forms.RadioButton
+    $radioDisplayPopup.Location = New-Object System.Drawing.Point(10, 40)
+    $radioDisplayPopup.Size     = New-Object System.Drawing.Size(200, 20)
+    $radioDisplayPopup.Text     = 'Display Popup'
+
+    # Option 3: Both
+    $radioBoth                  = New-Object System.Windows.Forms.RadioButton
+    $radioBoth.Location         = New-Object System.Drawing.Point(10, 70)
+    $radioBoth.Size             = New-Object System.Drawing.Size(200, 20)
+    $radioBoth.Text             = 'Both'
+    $radioBoth.Checked          = $true
+
+    # OK Button
+    $okButton                   = New-Object System.Windows.Forms.Button
+    $okButton.Location          = New-Object System.Drawing.Point(100, 100)
+    $okButton.Size              = New-Object System.Drawing.Size(75, 23)
+    $okButton.Text              = 'OK'
+    $okButton.DialogResult      = [System.Windows.Forms.DialogResult]::OK
+
+    
+    # Add controls to form
+    $form.Controls.Add($radioDisplayPopup)  # Add a radio option for Popup
+    $form.Controls.Add($radioSaveToFile)    # Add the radio option for save-to-file
+    $form.Controls.Add($radioBoth)          # Add a radio option for both
+    $form.Controls.Add($okButton)           # Add the OK button
+    
+    # Set the OK button as the default for the enter button
+    $form.AcceptButton = $okButton
+
+    # Show the form
+    $form.Topmost = $true
+    $form.ShowDialog()
+
+    # Check which option was selected and return the result
+    if ($radioSaveToFile.Checked) {
+        $form.Dispose()
+        return 'SaveToFile'
+    } elseif ($radioDisplayPopup.Checked) {
+        $form.Dispose()
+        return 'DisplayPopup'
+    } elseif ($radioBoth.Checked) {
+        $form.Dispose()
+        return 'Both'
+    }
+}
+
+# Execute a boostrap proceedure, if specified (default is $true, use '-Bootstrap $false' to prevent bootstrap execution)
+if ($bootstrap) {
+    try {
+        #region This section requires no user interaction
+        # Variables
+        $moduleList = @{
+            "Get-ComputerNames" = @{
+                Name = "Get-ComputerNames"
+                Path = $assetsFolder
+            }
+            "Active Directory" = @{
+                Name = "ActiveDirectory"
+                ErrorMessage = "This script requires the Active Directory module.`nYou need to install RSAT tools to proceed.`nRSAT Tools can be found at:`n\\lmh-sms\applications$\Microsoft\RSAT Tools"
+            }
+            "Progress Bar" = @{
+                Name = "ProgressBar"
+                Path = $assetsFolder
+            }
+            "Easy Async Jobs" = @{
+                Name = "EasyAsyncJobs"
+                Path = $assetsFolder
+            }
+        }
+        
+        # Start tracking runtime
+        $startTime = Measure-ScriptRuntime
+        Write-Debug "Time Logged"
+        
+        # Verify the asset folder is available and checks that the Building and Department Codes.csv file is present - you can specify a different folder with the -assetsFolder flag
+        $assetLoaded = Verify-AssetsFolder -assetsFolder $assetsFolder
+        if (!$assetLoaded) { return }
+        Write-Debug "Asset folder verified"
+        
+        # Ensure the user has admin privileges
+        $adminVerified = Ensure-AdminPrivileges $myinvocation.MyCommand.Definition
+        if (!$adminVerified) { return }
+        Write-Debug "Administrator Privileges Verified"
+        
+        # Load modules listed in the ModuleList variable and track the ErrorIdCounter (no reason to track it or have it at this point)
+        try { $moduleIdCount = Load-ModuleGeneric -ModuleList $moduleList } catch { return $Error[0] }
+        if (!$moduleIdCount) { return }
+        Write-Debug "Modules Loaded"
+        #endregion
+        
+        Write-Debug "Bootstrap complete"
+    } catch {
+        throw "Bootstrap failed.`n$Error[0]"
+    }
 }
